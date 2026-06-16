@@ -1,0 +1,80 @@
+name: 🐛 Bug Report
+description: Laporkan bug atau masalah yang kamu temukan
+title: "[BUG] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Terima kasih sudah melaporkan bug! Isi form ini dengan detail agar kami bisa segera memperbaikinya.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 📝 Deskripsi Bug
+      description: Jelaskan bug yang terjadi secara singkat dan jelas
+      placeholder: "Contoh: Tombol 'Kirim' di form kontak tidak merespons setelah diklik"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔁 Langkah Reproduksi
+      description: Langkah-langkah untuk mereproduksi bug ini
+      value: |
+        1. Buka halaman '...'
+        2. Klik '...'
+        3. Scroll ke '...'
+        4. Lihat error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Perilaku yang Diharapkan
+      description: Apa yang seharusnya terjadi?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: ❌ Perilaku yang Terjadi
+      description: Apa yang sebenarnya terjadi?
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 📸 Screenshot
+      description: Tambahkan screenshot jika ada
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 🌐 Browser
+      multiple: true
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Lainnya
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: 📱 Device
+      options:
+        - Desktop
+        - Mobile
+        - Tablet
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📌 Informasi Tambahan
+      description: Informasi lain yang mungkin berguna
