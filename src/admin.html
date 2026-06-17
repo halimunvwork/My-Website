@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard — MyWebsite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+
+  <body class="admin-body">
+    <div class="admin-container">
+      <!-- LOGIN SCREEN -->
+      <div class="admin-login-card" id="login-card">
+        <h2>Akses Dashboard Admin 🔒</h2>
+        <p>Masukkan passcode untuk mengakses data konsultasi calon klien.</p>
+        <form class="admin-login-form" id="login-form">
+          <div class="form-group" style="text-align: left">
+            <label for="passcode">Admin Passcode</label>
+            <input
+              type="password"
+              id="passcode"
+              placeholder="••••••••"
+              required
+            />
+            <span class="form-error" id="login-error"></span>
+          </div>
+          <button type="submit" class="btn-primary btn-full">
+            Masuk Dashboard
+          </button>
+        </form>
+      </div>
+
+      <!-- MAIN DASHBOARD CONTENT -->
+      <div id="dashboard-content" style="display: none">
+        <header class="admin-header">
+          <div class="admin-title-group">
+            <h1>Dashboard Prospek Klien 📊</h1>
+            <p style="color: var(--clr-text-muted)">
+              Mengelola data hasil pengisian kuesioner konsultasi gratis.
+            </p>
+          </div>
+          <div class="admin-actions">
+            <button class="btn-primary" id="btn-export">
+              Ekspor Laporan (CSV) 📥
+            </button>
+            <button class="btn-ghost" id="btn-logout">Keluar 🚪</button>
+          </div>
+        </header>
+
+        <div class="admin-table-wrapper">
+          <table class="admin-table" id="submissions-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Nama Klien</th>
+                <th>Email</th>
+                <th>WhatsApp</th>
+                <th>Jenis Website</th>
+                <th>Anggaran</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+          <div class="empty-state" id="empty-state" style="display: none">
+            Belum ada data pengajuan konsultasi masuk.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAIL MODAL -->
+    <div class="admin-modal" id="detail-modal" hidden>
+      <div class="wizard-overlay" id="detail-overlay"></div>
+      <div class="admin-modal-container">
+        <header class="admin-modal-header">
+          <h3 style="font-size: 1.25rem; font-weight: 800">
+            Detail Hasil Konsultasi Klien 📋
+          </h3>
+          <button
+            class="wizard-close"
+            id="detail-close"
+            style="position: static"
+          >
+            ×
+          </button>
+        </header>
+        <main class="admin-modal-body" id="detail-body">
+          <!-- Injected details -->
+        </main>
+      </div>
+    </div>
+
+    <script>
+      const loginCard = document.getElementById('login-card');
+      const dashboardContent = document.getElementById('dashboard-content');
+      const loginForm = document.getElementById('login-form');
+      const passcodeVal = document.getElementById('passcode');
+      const loginError = document.getElementById('login-error');
+      const tableBody = document.getElementById('table-body');
+      const emptyState = document.getElementById('empty-state');
+      const btnExport = document.getElementById('btn-export');
+      const btnLogout = document.getElementById('btn-logout');
+
+      const detailModal = document.getElementById('detail-modal');
+      const detailClose = document.getElementById('detail-close');
+      const detailOverlay = document.getElementById('detail-overlay');
+      const detailBody = document.getElementById('detail-body');
+
+      let loadedSubmissions = [];
+
+      // Helper to get passcode
+      const getPasscode = () => localStorage.getItem('admin_passcode') || '';
+
+      // Load Submissions
+      const loadDashboard = async () => {
+        const passcode = getPasscode();
+        if (!passcode) {
+          showLogin();
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/submissions', {
+            headers: {
+              'x-admin-passcode': passcode,
+            },
+          });
+
+          if (res.status === 401) {
+            localStorage.removeItem('admin_passcode');
+            showLogin('Passcode tidak valid');
+            return;
+          }
+
+          const data = await res.json();
+          if (data.success) {
+            loadedSubmissions = data.submissions || [];
+            renderTable(loadedSubmissions);
+            showDashboard();
+          } else {
+            showLogin(data.message || 'Terjadi kesalahan sistem');
+          }
+        } catch (err) {
+          console.error(err);
+          showLogin('Gagal terhubung ke server');
+        }
+      };
+
+      // Render Table Data
+      const renderTable = submissions => {
+        tableBody.innerHTML = '';
+        if (submissions.length === 0) {
+          emptyState.style.display = 'block';
+          return;
+        }
+        emptyState.style.display = 'none';
+
+        // Sort newest first
+        const sorted = [...submissions].sort(
+          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+        );
+
+        sorted.forEach(sub => {
+          const dateStr = new Date(sub.timestamp).toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+          <td><strong>${dateStr}</strong></td>
+          <td>${sub.client.name}</td>
+          <td><a href="mailto:${sub.client.email}" style="color:var(--clr-primary-2);text-decoration:none;">${sub.client.email}</a></td>
+          <td><a href="https://wa.me/${sub.client.whatsapp.replace(/[^0-9]/g, '')}" target="_blank" style="color:var(--clr-green);text-decoration:none;font-weight:600;">${sub.client.whatsapp}</a></td>
+          <td><span class="badge-web-type">${sub.answers.jenisWebsite || 'Lainnya'}</span></td>
+          <td style="color: var(--clr-accent); font-weight: 600;">${sub.answers.anggaran || '-'}</td>
+          <td>
+            <button class="btn-detail" onclick="openDetail('${sub.id}')">Lihat Detail</button>
+          </td>
+        `;
+          tableBody.appendChild(row);
+        });
+      };
+
+      // Open detail modal
+      window.openDetail = id => {
+        const sub = loadedSubmissions.find(s => s.id === id);
+        if (!sub) return;
+
+        const a = sub.answers || {};
+
+        detailBody.innerHTML = `
+        <div class="detail-section">
+          <h4 class="detail-section-title">Informasi Kontak Klien</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Nama Klien</span>
+              <span class="detail-val"><strong>${sub.client.name}</strong></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Alamat Email</span>
+              <span class="detail-val"><a href="mailto:${sub.client.email}">${sub.client.email}</a></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Nomor WhatsApp</span>
+              <span class="detail-val"><a href="https://wa.me/${sub.client.whatsapp.replace(/[^0-9]/g, '')}" target="_blank" style="color:var(--clr-green);font-weight:600;">${sub.client.whatsapp}</a></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Waktu Pengisian</span>
+              <span class="detail-val">${new Date(sub.timestamp).toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">1. Tujuan & Jenis Website</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Jenis Website</span>
+              <span class="detail-val">${a.jenisWebsite || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Tujuan Utama</span>
+              <span class="detail-val">${a.tujuanUtama || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Target Pengunjung</span>
+              <span class="detail-val">${a.targetPengunjung || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Fitur Wajib</span>
+              <span class="detail-val">${a.fiturWajib || 'Tidak diisi'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">2. Isi & Halaman Website</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Menu / Halaman</span>
+              <span class="detail-val">${a.halamanDiinginkan || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Kesiapan Isi Konten</span>
+              <span class="detail-val">${a.kesiapanKonten || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Jumlah Konten</span>
+              <span class="detail-val">${a.jumlahKonten || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Berkas Unduhan</span>
+              <span class="detail-val">${a.berkasUnduhan || 'Tidak diisi'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">3. Tampilan & Desain</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Gaya Tampilan</span>
+              <span class="detail-val">${a.gayaTampilan || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Warna Utama</span>
+              <span class="detail-val">${a.warnaUtama || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Website Referensi</span>
+              <span class="detail-val" style="white-space: pre-line;">${a.websiteReferensi || 'Tidak ada'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Wajib Di Halaman Depan</span>
+              <span class="detail-val">${a.halamanDepanKhusus || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Kepentingan Optimasi HP</span>
+              <span class="detail-val">${a.kenyamananHP || 'Tidak diisi'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">4. Teknis & Pengelolaan</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Domain & Hosting</span>
+              <span class="detail-val">${a.domainHosting || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Bisa Ubah Isi Sendiri</span>
+              <span class="detail-val">${a.ubahIsiSendiri || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Hubungkan ke Media Sosial</span>
+              <span class="detail-val">${a.hubungkanMedsos || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Layanan Pihak Ketiga</span>
+              <span class="detail-val">${a.layananTambahan || 'Tidak diisi'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">5. Waktu & Anggaran & Penutup</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Target Waktu Selesai</span>
+              <span class="detail-val">${a.targetWaktu || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Kisaran Anggaran</span>
+              <span class="detail-val" style="color:var(--clr-accent); font-weight:700;">${a.anggaran || 'Tidak diisi'}</span>
+            </div>
+            <div class="detail-item" style="grid-column: span 2;">
+              <span class="detail-label">Keinginan Khusus / Catatan</span>
+              <span class="detail-val" style="white-space: pre-line;">${a.keinginanKhusus || 'Tidak ada catatan tambahan'}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+        detailModal.removeAttribute('hidden');
+        document.body.style.overflow = 'hidden';
+      };
+
+      const closeDetailModal = () => {
+        detailModal.setAttribute('hidden', '');
+        document.body.style.overflow = '';
+      };
+
+      detailClose.addEventListener('click', closeDetailModal);
+      detailOverlay.addEventListener('click', closeDetailModal);
+
+      // Show/Hide Helpers
+      const showLogin = (errMsg = '') => {
+        loginCard.style.display = 'block';
+        dashboardContent.style.display = 'none';
+        if (errMsg) {
+          loginError.textContent = errMsg;
+          passcodeVal.classList.add('error');
+        } else {
+          loginError.textContent = '';
+          passcodeVal.classList.remove('error');
+        }
+      };
+
+      const showDashboard = () => {
+        loginCard.style.display = 'none';
+        dashboardContent.style.display = 'block';
+      };
+
+      // Form Event: Login
+      loginForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const code = passcodeVal.value.trim();
+        if (!code) return;
+        localStorage.setItem('admin_passcode', code);
+        loadDashboard();
+      });
+
+      // Form Event: Export
+      btnExport.addEventListener('click', () => {
+        const passcode = getPasscode();
+        if (!passcode) return;
+        // Navigate to download CSV
+        window.location.href = `/api/submissions/export?passcode=${encodeURIComponent(passcode)}`;
+      });
+
+      // Form Event: Logout
+      btnLogout.addEventListener('click', () => {
+        localStorage.removeItem('admin_passcode');
+        passcodeVal.value = '';
+        showLogin();
+      });
+
+      // Initialize
+      loadDashboard();
+    </script>
+  </body>
+</html>
