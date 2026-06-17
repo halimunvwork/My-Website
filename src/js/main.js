@@ -211,7 +211,7 @@ const initContactForm = () => {
 
     if (!isValid) return;
 
-    // Simulate sending
+    // Sending to Web3Forms
     const btn = document.getElementById('submit-btn');
     const btnText = btn.querySelector('.btn-text');
     const btnLoader = btn.querySelector('.btn-loader');
@@ -220,17 +220,45 @@ const initContactForm = () => {
     btnText.hidden = true;
     btnLoader.hidden = false;
 
-    await new Promise(resolve => setTimeout(resolve, 1800));
+    try {
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          access_key: 'a1849c6c-be8e-4201-8bce-00f486c1f0e8',
+          name: fields.name.el.value,
+          email: fields.email.el.value,
+          subject: fields.subject.el.value,
+          message: fields.message.el.value,
+          from_name: 'MyWebsite Contact Form'
+        })
+      });
 
-    // Show success
-    const wrapper = form.parentElement;
-    wrapper.innerHTML = `
-      <div class="form-success">
-        <span class="form-success-icon">✅</span>
-        <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.75rem;">Pesan Terkirim!</h3>
-        <p style="color:var(--clr-text-2)">Terima kasih! Kami akan menghubungi kamu dalam 1-2 hari kerja.</p>
-      </div>
-    `;
+      const json = await response.json();
+
+      if (response.status === 200) {
+        // Show success
+        const wrapper = form.parentElement;
+        wrapper.innerHTML = `
+          <div class="form-success">
+            <span class="form-success-icon">✅</span>
+            <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.75rem;">Pesan Terkirim!</h3>
+            <p style="color:var(--clr-text-2)">Terima kasih! Kami akan menghubungi kamu dalam 1-2 hari kerja.</p>
+          </div>
+        `;
+      } else {
+        throw new Error(json.message || 'Gagal mengirim pesan');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Maaf, terjadi kesalahan saat mengirim pesan. Silakan coba beberapa saat lagi.');
+      btn.disabled = false;
+      btnText.hidden = false;
+      btnLoader.hidden = true;
+    }
   });
 };
 
